@@ -1,0 +1,14 @@
+# Project & component variables
+PROJECT = masterproef
+COMPONENT = predrnnpp
+
+# Container run variables
+USER = jefp
+CONTAINER_INSTANCE = default
+
+# Overridable parameters
+WORKSPACE ?= $(PWD)
+
+# Container options
+VOLUMES = -v $(WORKSPACE):/workspace --gpus all
+

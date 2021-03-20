@@ -3,11 +3,15 @@ import cv2
 import matplotlib.pyplot as plt
 import os
 
-BASEPATH = "/home/jef/Documents/data/frontview"
+SET = "frontside" #possible values: front - back - side - frontside - backside
 
-TRAINSET = 0.7 #percentage of dataset for training set
-VALSET = 0.1 #persentage of dataset for validation set
-TESTSET = 0.2 #percentage of dataset fot test set
+BASEPATH = "/home/jef/Documents/data/"+SET+"view"
+
+TRAINSET = 0.4 #percentage of dataset for training set 0.6
+VALSET = 0.25 #persentage of dataset for validation set 0.15
+TESTSET = 0.35 #percentage of dataset fot test set 0.25
+
+LAATSTEVIER = True
 
 
 def sorteren():
@@ -55,15 +59,15 @@ def verdeelsets(lijstsequenties):
     numtest = int(seqlen * TESTSET)
 
     for seq in new:
-        if len(seq) >= 10 and numtrain > 0:
+        if len(seq) >= 15 and numtrain > 0:
             train.append(seq)
             numtrain -= 1
-        elif numval > 0:
-            val.append(seq)
-            numval -= 1
         elif numtest > 0:
             test.append(seq)
             numtest -= 1
+        elif numval > 0:
+            val.append(seq)
+            numval -= 1
         elif numtrain > 0:
             train.append(seq)
             numtrain -= 1
@@ -82,10 +86,13 @@ def lengteseqaanpassen(lijstsequenties):
         if len(seq) <= 4:
             newlist.append(seq)
         else:
-            for i in range((len(seq)-4+1)):
-                t = [seq[i], seq[i+1], seq[i+2], seq[i+3]]
+            if LAATSTEVIER == False:
+                for i in range((len(seq)-4+1)):
+                    t = [seq[i], seq[i+1], seq[i+2], seq[i+3]]
+                    newlist.append(t)
+            else:
+                t = [seq[-4], seq[-3], seq[-2], seq[-1]]
                 newlist.append(t)
-                
 
     print("Na:" + str(len(newlist)))
 
@@ -118,8 +125,16 @@ def datasetvormgeven(lijstsequenties):
                 print("Probleem H of W bij " + model)
                 errorinseq = True
                 continue
-        
-            tijdelijk.append(img)
+
+            img = cv2.resize(img, (240, 164), interpolation = cv2.INTER_AREA)
+
+            img = np.float32(img)
+
+            img = cv2.normalize(img, img, 0, 1, norm_type=cv2.NORM_MINMAX)
+
+            img = np.float16(img)
+
+            tijdelijk.append([img])
 
         if errorinseq == True:
             print("Sequentie geskipt!")
@@ -162,8 +177,8 @@ def opslaannpz(inp, gt, data, naam):
         data --> lijst van de afbeeldingen achter elkaar"""
 
     index = [inp, gt]
-    dims = [788, 525, 1]
-    np.savez("npz/auto-" + naam + ".npz", index=index, data=data, dims=dims)
+    dims = [[1, 164, 240]]
+    np.savez("npz/auto-" + naam + "-" + SET + "-l4.npz", index=index, data=data, dims=dims)
 
 
 def main():
@@ -172,15 +187,15 @@ def main():
 
     train, val, test = verdeelsets(lijstsequenties)
 
-    train = lengteseqaanpassen(train)
-    val = lengteseqaanpassen(val)
+    # train = lengteseqaanpassen(train)
+    # val = lengteseqaanpassen(val)
     test = lengteseqaanpassen(test)
 
-    inp, gt, data = datasetvormgeven(train)
-    opslaannpz(inp, gt, data, "train")
+    # inp, gt, data = datasetvormgeven(train)
+    # opslaannpz(inp, gt, data, "train")
 
-    inp, gt, data = datasetvormgeven(val)
-    opslaannpz(inp, gt, data, "validatie")
+    # inp, gt, data = datasetvormgeven(val)
+    # opslaannpz(inp, gt, data, "validatie")
 
     inp, gt, data = datasetvormgeven(test)
     opslaannpz(inp, gt, data, "test")

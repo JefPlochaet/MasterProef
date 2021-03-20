@@ -1,0 +1,5 @@
+#!bin/bash
+
+python3 /workspace/src/test-front.py | tee /workspace/output-front-test-l4.txt
+python3 /workspace/src/test-side.py | tee /workspace/output-side-test-l4.txt
+python3 /workspace/src/test-frontside.py | tee /workspace/output-frontside-test-l4.txt
