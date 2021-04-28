@@ -2,6 +2,7 @@ import argparse
 import torch
 import functools
 from torchinfo import summary
+import os
 
 from model import Model
 from datahandler_auto import DataHandler
@@ -49,6 +50,9 @@ if __name__ == '__main__':
     print('Initializing networks\n')
 
     model = Model(args)
+
+    if not os.path.isdir("results/"):
+        os.mkdir("results/")
 
     if args.train == 1:
         traindata = DataHandler(args, args.train_path)

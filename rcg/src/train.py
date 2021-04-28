@@ -19,13 +19,15 @@ def train(args, model, traindata, validatiedata):
     framediscoptim = torch.optim.Adam(params=framediscriminator.parameters(), lr=args.lr, betas=(0.5, 0.999))
     seqdiscoptim = torch.optim.Adam(params=seqdiscriminator.parameters(), lr=args.lr, betas=(0.5, 0.999))
 
-    traindata.begin()
+    traindata.begin(shuffle=True)
 
     gloss = []
     floss = []
     sloss = []
 
     for itr in range(1, 51):
+        if traindata.batch_left() == False:
+            traindata.begin(shuffle=True)
 
         batch = traindata.get_batch()
         revbatch = traindata.get_revbatch()
@@ -152,9 +154,8 @@ def train(args, model, traindata, validatiedata):
                         os.mkdir(path)
 
                     vbatch = validatiedata.get_batch()
-                    vbatch.cuda()
-                    
-                    vbt = convert_to_tensor(args, vbatch)
+
+                    vbt = convert_to_tensor(args, vbatch).cuda()
 
                     genimg = generator.forward(get_input_seq(args, vbt))
 
