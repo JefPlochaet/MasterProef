@@ -9,4 +9,7 @@ python3 src/main.py \
 	--total_length 4 \
 	--img_height 160 \
 	--img_width 240 \
-	--img_ch 1	
+	--img_ch 1 \
+	--max_itr 1 \
+	--test_interval 1 \
+	--snapshot_interval 1

@@ -34,7 +34,6 @@ parser.add_argument('--batch_size', type=int, default=8)
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--test_interval', type=int, default=20000)
 parser.add_argument('--max_itr', type=int, default=80000)
-parser.add_argument('--display_interval', type=int, default=1)
 parser.add_argument('--snapshot_interval', type=int, default=80000)
 parser.add_argument('--num_save_samples', type=int, default=10)
 

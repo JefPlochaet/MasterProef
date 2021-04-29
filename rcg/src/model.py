@@ -12,10 +12,15 @@ class Model():
         self.discframe = DiscriminatorNetwork(self.args, True)
         self.discseq = DiscriminatorNetwork(self.args, False)
 
-        self.l1loss = torch.nn.L1Loss().cuda()
-        self.LoG = LoG(kernel_size=5, sigma=0.65, in_channels=1).cuda()
-        self.GANLossDisc = GANLossDisc().cuda()
-        self.GANLossGen = GANLossGen().cuda()
+        # self.l1loss = torch.nn.L1Loss().cuda()
+        # self.LoG = LoG(kernel_size=5, sigma=0.65, in_channels=1).cuda()
+        # self.GANLossDisc = GANLossDisc().cuda()
+        # self.GANLossGen = GANLossGen().cuda()
+
+        self.l1loss = torch.nn.L1Loss()
+        self.LoG = LoG(kernel_size=5, sigma=0.65, in_channels=1)
+        self.GANLossDisc = GANLossDisc()
+        self.GANLossGen = GANLossGen()
 
     def imageloss(self, ngt, mgt, nacc, macc, naccacc, maccacc):
         """Image loss van de 6 paar afbeeldingen (zie paper)"""

@@ -1,19 +1,22 @@
 import torch
 import os
 import cv2
+from skimage.metrics import structural_similarity
+from skimage.metrics import mean_squared_error
+from skimage.metrics import peak_signal_noise_ratio
 
 from utils import *
 
 def train(args, model, traindata, validatiedata):
 
     generator = model.generator
-    generator.cuda()
+    # generator.cuda()
 
     framediscriminator = model.discframe
-    framediscriminator.cuda()
+    # framediscriminator.cuda()
 
     seqdiscriminator = model.discseq
-    seqdiscriminator.cuda()
+    # seqdiscriminator.cuda()
 
     genoptim = torch.optim.Adam(params=generator.parameters(), lr=args.lr, betas=(0.5, 0.999))
     framediscoptim = torch.optim.Adam(params=framediscriminator.parameters(), lr=args.lr, betas=(0.5, 0.999))
@@ -25,7 +28,7 @@ def train(args, model, traindata, validatiedata):
     floss = []
     sloss = []
 
-    for itr in range(1, 51):
+    for itr in range(1, args.max_itr+1):
         if traindata.batch_left() == False:
             traindata.begin(shuffle=True)
 
@@ -33,10 +36,10 @@ def train(args, model, traindata, validatiedata):
         revbatch = traindata.get_revbatch()
 
         torchbatch = convert_to_tensor(args, batch)
-        torchbatch.cuda()
+        # torchbatch.cuda()
 
         torchrevbatch = convert_to_tensor(args, revbatch)
-        torchrevbatch.cuda()
+        # torchrevbatch.cuda()
 
         # -------------------
         # Get GT information
@@ -65,16 +68,12 @@ def train(args, model, traindata, validatiedata):
         maccacc = model.generator.forward(get_input_seq(args, torchbatchnacc)) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
 
         frameloss = model.frameloss(ngt, mgt, nacc, macc, naccacc, maccacc)
-        # frameloss = frameloss.squeeze()
-
-        # print(frameloss.shape)
-        # print(frameloss.mean().shape)
 
         framediscoptim.zero_grad()
         frameloss.mean().backward()
         framediscoptim.step()
 
-        
+        floss.append(frameloss.mean())
 
         # -----------------------------
         # Train sequence discriminator
@@ -100,7 +99,7 @@ def train(args, model, traindata, validatiedata):
         seqloss.mean().backward()
         seqdiscoptim.step()
 
-        
+        sloss.append(seqloss.mean())
 
         # ----------------
         # Train generator
@@ -130,46 +129,76 @@ def train(args, model, traindata, validatiedata):
         totloss.mean().backward()
         genoptim.step()
 
-        print("itr%d" % (itr))
+        gloss.append(totloss.mean())
+
+        print("itr%d: gloss=%f\tfloss=%f\tsloss=%f" % (itr, gloss[itr-1], floss[itr-1], sloss[itr-1]))
 
         # ----------
         # Validatie
         # ----------
 
-        if(itr % 50 == 0):
-            print("Validatietest itr%d" % (itr))
+        if(itr % args.test_interval == 0):
+            print("Validatietest itr:%d" % (itr))
+            msetot = 0
+            ssimtot = 0
+            psnrtot = 0
 
             validatiedata.begin(shuffle=False)
             
             batchid = 0
 
-            if not os.path.isdir("results/" + str(itr)):
-                os.mkdir("results/" + str(itr))
+            if not os.path.isdir(args.results_dir + "/" + str(itr)):
+                os.mkdir(args.results_dir + "/" + str(itr))
 
             while(validatiedata.batch_left() == True):
 
-                if batchid < 1:
-                    path = "results/" + str(itr) +  "/" + str(batchid)
+                vbatch = validatiedata.get_batch()
+
+                # vbt = convert_to_tensor(args, vbatch).cuda()
+                vbt = convert_to_tensor(args, vbatch)
+
+                gtimg = get_gt_frame(args, vbt)
+                pdimg = generator.forward(get_input_seq(args, vbt))
+
+                for i in range(args.batch_size):
+                    gtnp = np.uint8(gtimg[i, 0].detach().cpu() * 255)
+                    pdnp = np.uint8(pdimg[i, 0].detach().cpu() * 255)
+                    msetot += mean_squared_error(gtnp, pdnp)
+                    ssimtot += structural_similarity(gtnp, pdnp)
+                    psnrtot += peak_signal_noise_ratio(gtnp, pdnp)
+
+                # save predication samples
+                if batchid < 10:
+                    path = args.results_dir + "/" + str(itr) +  "/" + str(batchid+1)
                     if not os.path.isdir(path):
                         os.mkdir(path)
 
-                    vbatch = validatiedata.get_batch()
+                    for i in range(args.total_length):
+                        file = path + "/gt" + str(i+1) + ".png"
+                        img = np.uint8(vbt[0, i].detach().cpu() * 255)
+                        cv2.imwrite(file, img)
 
-                    vbt = convert_to_tensor(args, vbatch).cuda()
+                    img = pdimg[0].detach().cpu().numpy()
 
-                    genimg = generator.forward(get_input_seq(args, vbt))
+                    img = np.uint8(img[0] * 255)
 
-                    img = genimg[0].detach().numpy()
-
-                    img = np.uint8(img[0] * 256)
-                    
-                    print(img)
-
-                    file = path + "/x.png"
+                    file = path + "/pd"+ str(args.input_length+1) +".png"
                     cv2.imwrite(file, img)
-
-
-
 
                 batchid += 1
                 validatiedata.next()
+            
+            mse = msetot/((batchid+1)*args.batch_size)
+            ssim = ssimtot/((batchid+1)*args.batch_size)
+            psnr = psnrtot/((batchid+1)*args.batch_size)
+
+            print("ssim=%f\tmse=%f\tpsnr=%f\t" % (ssim, mse, psnr))
+        
+        # save model
+        if(itr % args.snapshot_interval == 0):
+            if not os.path.isdir(args.checkp_dir):
+                os.mkdir(args.checkp_dir)
+
+            torch.save(generator.state_dict(),  args.checkp_dir + "/generator_param_"+ str(itr) +".pkl")
+            torch.save(framediscriminator.state_dict(),  args.checkp_dir + "/framediscriminator_param_"+ str(itr) +".pkl")
+            torch.save(seqdiscriminator.state_dict(),  args.checkp_dir + "/seqdiscriminator_param_"+ str(itr) +".pkl")
