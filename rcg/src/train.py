@@ -7,65 +7,77 @@ from skimage.metrics import peak_signal_noise_ratio
 
 from utils import *
 
-def train(args, model, traindata, validatiedata):
+def train(args, model, traindata, validatiedata, device):
 
     generator = model.generator
-    # generator.cuda()
+    generator.to(device)
 
     framediscriminator = model.discframe
-    # framediscriminator.cuda()
+    framediscriminator.to(device)
 
     seqdiscriminator = model.discseq
-    # seqdiscriminator.cuda()
+    seqdiscriminator.to(device)
 
-    genoptim = torch.optim.Adam(params=generator.parameters(), lr=args.lr, betas=(0.5, 0.999))
-    framediscoptim = torch.optim.Adam(params=framediscriminator.parameters(), lr=args.lr, betas=(0.5, 0.999))
-    seqdiscoptim = torch.optim.Adam(params=seqdiscriminator.parameters(), lr=args.lr, betas=(0.5, 0.999))
+    lr = args.lr
+
+    genoptim = torch.optim.Adam(params=generator.parameters(), lr=lr, betas=(0.5, 0.999))
+    framediscoptim = torch.optim.Adam(params=framediscriminator.parameters(), lr=lr, betas=(0.5, 0.999))
+    seqdiscoptim = torch.optim.Adam(params=seqdiscriminator.parameters(), lr=lr, betas=(0.5, 0.999))
 
     traindata.begin(shuffle=True)
 
-    gloss = []
-    floss = []
-    sloss = []
+    # gloss = []
+    # floss = []
+    # sloss = []
+
+    epoch = 0
 
     for itr in range(1, args.max_itr+1):
         if traindata.batch_left() == False:
             traindata.begin(shuffle=True)
 
+            epoch += 1
+
+            if epoch % 100 == 0:
+                lr /= 10
+                genoptim.param_groups[0]['lr'] = lr
+                framediscoptim.param_groups[0]['lr'] = lr
+                seqdiscoptim.param_groups[0]['lr'] = lr
+
         batch = traindata.get_batch()
         revbatch = traindata.get_revbatch()
 
         torchbatch = convert_to_tensor(args, batch)
-        # torchbatch.cuda()
+        torchbatch.to(device)
 
         torchrevbatch = convert_to_tensor(args, revbatch)
-        # torchrevbatch.cuda()
+        torchrevbatch.to(device)
 
         # -------------------
         # Get GT information
         # -------------------
 
-        inseq = get_input_seq(args, torchbatch)
-        revinseq = get_input_seq(args, torchrevbatch)
+        inseq = get_input_seq(args, torchbatch).to(device)
+        revinseq = get_input_seq(args, torchrevbatch).to(device)
 
-        ngt = get_gt_frame(args, torchbatch) #gt frame toekomst
-        nsgt = get_gt_seq(args, torchbatch)
-        
-        mgt = get_gt_frame(args, torchrevbatch) #gt frame verleden
-        msgt = get_gt_seq(args, torchrevbatch)
-        
+        ngt = get_gt_frame(args, torchbatch).to(device) #gt frame toekomst
+        nsgt = get_gt_seq(args, torchbatch).to(device)
+
+        mgt = get_gt_frame(args, torchrevbatch).to(device) #gt frame verleden
+        msgt = get_gt_seq(args, torchrevbatch).to(device)
+
         # --------------------------
         # Train frame discriminator
         # --------------------------
 
-        nacc = model.generator.forward(inseq) #genereer toekomstige frame
-        macc = model.generator.forward(revinseq) #genereer verleden frame (omgekeerde sequentie)
+        nacc = model.generator(inseq) #genereer toekomstige frame
+        macc = model.generator(revinseq) #genereer verleden frame (omgekeerde sequentie)
 
         torchbatchmacc = add_front_frame(args, nsgt, macc) #voeg de genereerde frame toe aan de sequentie
         torchbatchnacc = add_front_frame(args, msgt, nacc) #voeg de genereerde frame toe aan de sequentie
 
-        naccacc = model.generator.forward(get_input_seq(args, torchbatchmacc)) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
-        maccacc = model.generator.forward(get_input_seq(args, torchbatchnacc)) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
+        naccacc = model.generator(get_input_seq(args, torchbatchmacc)) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
+        maccacc = model.generator(get_input_seq(args, torchbatchnacc)) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
 
         frameloss = model.frameloss(ngt, mgt, nacc, macc, naccacc, maccacc)
 
@@ -73,20 +85,20 @@ def train(args, model, traindata, validatiedata):
         frameloss.mean().backward()
         framediscoptim.step()
 
-        floss.append(frameloss.mean())
+        # floss.append(float(frameloss.mean()))
 
         # -----------------------------
         # Train sequence discriminator
         # -----------------------------
 
-        nacc = model.generator.forward(inseq) #genereer toekomstige frame
-        macc = model.generator.forward(revinseq) #genereer verleden frame (omgekeerde sequentie)
+        nacc = model.generator(inseq) #genereer toekomstige frame
+        macc = model.generator(revinseq) #genereer verleden frame (omgekeerde sequentie)
 
         torchbatchmacc = add_front_frame(args, nsgt, macc) #voeg de genereerde frame toe aan de sequentie
         torchbatchnacc = add_front_frame(args, msgt, nacc) #voeg de genereerde frame toe aan de sequentie
 
-        naccacc = model.generator.forward(get_input_seq(args, torchbatchmacc)) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
-        maccacc = model.generator.forward(get_input_seq(args, torchbatchnacc)) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
+        naccacc = model.generator(get_input_seq(args, torchbatchmacc)) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
+        maccacc = model.generator(get_input_seq(args, torchbatchnacc)) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
 
         nsacc = add_back_frame(args, nsgt, nacc)
         msacc = add_back_frame(args, msgt, macc)
@@ -99,20 +111,20 @@ def train(args, model, traindata, validatiedata):
         seqloss.mean().backward()
         seqdiscoptim.step()
 
-        sloss.append(seqloss.mean())
+        # sloss.append(float(seqloss.mean()))
 
         # ----------------
         # Train generator
         # ----------------
 
-        nacc = model.generator.forward(inseq) #genereer toekomstige frame
-        macc = model.generator.forward(revinseq) #genereer verleden frame (omgekeerde sequentie)
+        nacc = model.generator(inseq) #genereer toekomstige frame
+        macc = model.generator(revinseq) #genereer verleden frame (omgekeerde sequentie)
 
         torchbatchmacc = add_front_frame(args, nsgt, macc) #voeg de genereerde frame toe aan de sequentie
         torchbatchnacc = add_front_frame(args, msgt, nacc) #voeg de genereerde frame toe aan de sequentie
 
-        naccacc = model.generator.forward(get_input_seq(args, torchbatchmacc)) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
-        maccacc = model.generator.forward(get_input_seq(args, torchbatchnacc)) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
+        naccacc = model.generator(get_input_seq(args, torchbatchmacc)) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
+        maccacc = model.generator(get_input_seq(args, torchbatchnacc)) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
 
         nsacc = add_back_frame(args, nsgt, nacc)
         msacc = add_back_frame(args, msgt, macc)
@@ -123,82 +135,91 @@ def train(args, model, traindata, validatiedata):
         LoGloss = model.LoGloss(ngt, mgt, nacc, macc, naccacc, maccacc)
         frameloss = model.framelossGEN(nacc, macc, naccacc, maccacc)
         seqloss = model.framelossGEN(nacc, macc, naccacc, maccacc)
-        totloss = imageloss + 0.005 * LoGloss + 0.003 * frameloss + 0.003 * seqloss
+        totloss = imageloss + 0.005 * LoGloss + 0.003 * frameloss + 0.003 * seqloss #lambda 1, 2 & 3
 
         genoptim.zero_grad()
         totloss.mean().backward()
         genoptim.step()
 
-        gloss.append(totloss.mean())
+        # gloss.append(float(totloss.mean()))
 
-        print("itr%d: gloss=%f\tfloss=%f\tsloss=%f" % (itr, gloss[itr-1], floss[itr-1], sloss[itr-1]))
+        print("itr%d: gloss=%f\tfloss=%f\tsloss=%f" % (itr, float(totloss.mean()), float(frameloss.mean()), float(seqloss.mean())))
 
         # ----------
         # Validatie
         # ----------
 
         if(itr % args.test_interval == 0):
+
             print("Validatietest itr:%d" % (itr))
-            msetot = 0
-            ssimtot = 0
-            psnrtot = 0
 
-            validatiedata.begin(shuffle=False)
+            generator.eval()
+
+            with torch.no_grad():
             
-            batchid = 0
+                msetot = 0
+                ssimtot = 0
+                psnrtot = 0
 
-            if not os.path.isdir(args.results_dir + "/" + str(itr)):
-                os.mkdir(args.results_dir + "/" + str(itr))
+                validatiedata.begin(shuffle=False)
 
-            while(validatiedata.batch_left() == True):
+                batchid = 0
 
-                vbatch = validatiedata.get_batch()
+                if not os.path.isdir(args.results_dir + "/" + str(itr)):
+                    os.mkdir(args.results_dir + "/" + str(itr))
 
-                # vbt = convert_to_tensor(args, vbatch).cuda()
-                vbt = convert_to_tensor(args, vbatch)
+                while(validatiedata.batch_left() == True):
 
-                gtimg = get_gt_frame(args, vbt)
-                pdimg = generator.forward(get_input_seq(args, vbt))
+                    vbatch = validatiedata.get_batch()
 
-                for i in range(args.batch_size):
-                    gtnp = np.uint8(gtimg[i, 0].detach().cpu() * 255)
-                    pdnp = np.uint8(pdimg[i, 0].detach().cpu() * 255)
-                    msetot += mean_squared_error(gtnp, pdnp)
-                    ssimtot += structural_similarity(gtnp, pdnp)
-                    psnrtot += peak_signal_noise_ratio(gtnp, pdnp)
+                    vbt = convert_to_tensor(args, vbatch).to(device)
 
-                # save predication samples
-                if batchid < 10:
-                    path = args.results_dir + "/" + str(itr) +  "/" + str(batchid+1)
-                    if not os.path.isdir(path):
-                        os.mkdir(path)
+                    gtimg = get_gt_frame(args, vbt)
+                    pdimg = generator(get_input_seq(args, vbt))
 
-                    for i in range(args.total_length):
-                        file = path + "/gt" + str(i+1) + ".png"
-                        img = np.uint8(vbt[0, i].detach().cpu() * 255)
+                    for i in range(args.batch_size):
+                        gtnp = np.uint8(gtimg[i, 0].detach().cpu() * 255)
+                        pdnp = np.uint8(pdimg[i, 0].detach().cpu() * 255)
+                        msetot += mean_squared_error(gtnp, pdnp)
+                        ssimtot += structural_similarity(gtnp, pdnp)
+                        psnrtot += peak_signal_noise_ratio(gtnp, pdnp)
+
+                    # save predication samples
+                    if batchid < 10:
+                        path = args.results_dir + "/" + str(itr) +  "/" + str(batchid+1)
+                        if not os.path.isdir(path):
+                            os.mkdir(path)
+
+                        for i in range(args.total_length):
+                            file = path + "/gt" + str(i+1) + ".png"
+                            img = np.uint8(vbt[0, i].detach().cpu() * 255)
+                            cv2.imwrite(file, img)
+
+                        img = pdimg[0].detach().cpu().numpy()
+
+                        img = np.uint8(img[0] * 255)
+
+                        file = path + "/pd"+ str(args.input_length+1) +".png"
                         cv2.imwrite(file, img)
 
-                    img = pdimg[0].detach().cpu().numpy()
+                    batchid += 1
+                    validatiedata.next()
 
-                    img = np.uint8(img[0] * 255)
+                mse = msetot/((batchid+1)*args.batch_size)
+                ssim = ssimtot/((batchid+1)*args.batch_size)
+                psnr = psnrtot/((batchid+1)*args.batch_size)
 
-                    file = path + "/pd"+ str(args.input_length+1) +".png"
-                    cv2.imwrite(file, img)
-
-                batchid += 1
-                validatiedata.next()
+                print("ssim=%f\tmse=%f\tpsnr=%f\t" % (ssim, mse, psnr))
             
-            mse = msetot/((batchid+1)*args.batch_size)
-            ssim = ssimtot/((batchid+1)*args.batch_size)
-            psnr = psnrtot/((batchid+1)*args.batch_size)
+            generator.train()
 
-            print("ssim=%f\tmse=%f\tpsnr=%f\t" % (ssim, mse, psnr))
-        
         # save model
         if(itr % args.snapshot_interval == 0):
             if not os.path.isdir(args.checkp_dir):
                 os.mkdir(args.checkp_dir)
+            if not os.path.isdir(args.checkp_dir + '/' + str(itr)):
+                os.mkdir(args.checkp_dir + '/' + str(itr))
 
-            torch.save(generator.state_dict(),  args.checkp_dir + "/generator_param_"+ str(itr) +".pkl")
-            torch.save(framediscriminator.state_dict(),  args.checkp_dir + "/framediscriminator_param_"+ str(itr) +".pkl")
-            torch.save(seqdiscriminator.state_dict(),  args.checkp_dir + "/seqdiscriminator_param_"+ str(itr) +".pkl")
+            torch.save(generator,  args.checkp_dir + "/" + str(itr) + "/generator_"+ str(itr) +".pkl")
+            # torch.save(framediscriminator,  args.checkp_dir + "/" + str(itr) + "/framediscriminator_"+ str(itr) +".pkl")
+            # torch.save(seqdiscriminator,  args.checkp_dir + "/" + str(itr) + "/seqdiscriminator_"+ str(itr) +".pkl")

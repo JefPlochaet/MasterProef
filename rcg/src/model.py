@@ -5,22 +5,17 @@ from discriminator import DiscriminatorNetwork
 from losses import *
 
 class Model():
-    def __init__(self, args):
+    def __init__(self, args, device):
         self.args = args
 
         self.generator = GeneratorNetwork(self.args)
         self.discframe = DiscriminatorNetwork(self.args, True)
         self.discseq = DiscriminatorNetwork(self.args, False)
 
-        # self.l1loss = torch.nn.L1Loss().cuda()
-        # self.LoG = LoG(kernel_size=5, sigma=0.65, in_channels=1).cuda()
-        # self.GANLossDisc = GANLossDisc().cuda()
-        # self.GANLossGen = GANLossGen().cuda()
-
-        self.l1loss = torch.nn.L1Loss()
-        self.LoG = LoG(kernel_size=5, sigma=0.65, in_channels=1)
-        self.GANLossDisc = GANLossDisc()
-        self.GANLossGen = GANLossGen()
+        self.l1loss = torch.nn.L1Loss().to(device)
+        self.LoG = LoG(kernel_size=5, sigma=0.65, in_channels=1).to(device)
+        self.GANLossDisc = GANLossDisc().to(device)
+        self.GANLossGen = GANLossGen().to(device)
 
     def imageloss(self, ngt, mgt, nacc, macc, naccacc, maccacc):
         """Image loss van de 6 paar afbeeldingen (zie paper)"""
@@ -34,7 +29,7 @@ class Model():
 
         return losseen + losstwee + lossdrie + lossvier + lossvijf + losszes
 
-    def LoGloss(self, ngt, mgt, nacc, macc, naccacc, maccacc): 
+    def LoGloss(self, ngt, mgt, nacc, macc, naccacc, maccacc):
         """Laplacian of Gaussian loss van de 6 paar afbeeldingen (zie paper)"""
 
         losseen = self.l1loss(self.LoG(mgt), self.LoG(macc))
@@ -47,7 +42,7 @@ class Model():
         return losseen + losstwee + lossdrie + lossvier + lossvijf + losszes
 
     def frameloss(self, ngt, mgt, nacc, macc, naccacc, maccacc):
-        
+
         la1 = self.GANLossDisc(self.discframe(ngt), self.discframe(nacc))
         la2 = self.GANLossDisc(self.discframe(ngt), self.discframe(naccacc))
         la3 = self.GANLossDisc(self.discframe(mgt), self.discframe(macc))
