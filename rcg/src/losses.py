@@ -35,11 +35,11 @@ class GANLossDisc(nn.Module):
     def forward(self, d, dg):
         """d = real img
            dg = gen img"""
-        return (((d-1)**2) + (dg**2))
+        return (0.5*((d-1)**2) + 0.5*(dg**2))
 
 class GANLossGen(nn.Module):
     def __init__(self):
         super(GANLossGen, self).__init__()
     
     def forward(self, dg):
-        return ((dg-1)**2)
+        return 0.5*((dg-1)**2)

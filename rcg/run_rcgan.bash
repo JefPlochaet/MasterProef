@@ -14,4 +14,4 @@ python3 src/main.py \
 	--test_interval 20 \
 	--snapshot_interval 10 \
 	--lr 0.0003 \
-	--pretrained_model checkpoints/generator_5000.pkl
+	--pretrained_model checkpoints/generator_5000.pkl | tee otput.txt

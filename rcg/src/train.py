@@ -134,7 +134,7 @@ def train(args, model, traindata, validatiedata, device):
         imageloss = model.imageloss(ngt, mgt, nacc, macc, naccacc, maccacc)
         LoGloss = model.LoGloss(ngt, mgt, nacc, macc, naccacc, maccacc)
         frameloss = model.framelossGEN(nacc, macc, naccacc, maccacc)
-        seqloss = model.framelossGEN(nacc, macc, naccacc, maccacc)
+        seqloss = model.seqlossGEN(nsacc, msacc, nsaccacc, msaccacc)
         totloss = imageloss + 0.005 * LoGloss + 0.003 * frameloss + 0.003 * seqloss #lambda 1, 2 & 3
 
         genoptim.zero_grad()
