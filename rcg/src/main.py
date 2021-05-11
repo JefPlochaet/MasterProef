@@ -6,7 +6,7 @@ import os
 
 from model import Model
 from datahandler_auto import DataHandler
-from train import train
+from trainmore import train
 from test import test
 #----------------------------------------------------------------------
 

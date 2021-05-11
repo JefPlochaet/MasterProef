@@ -52,6 +52,8 @@ def train(args, model, traindata, validatiedata, device):
 
         newbatch = torchbatch.clone().to(device)
 
+        torch.autograd.set_detect_anomaly(True)
+
         for i in range(args.total_length-args.input_length):
 
             # -------------------
@@ -84,7 +86,10 @@ def train(args, model, traindata, validatiedata, device):
             frameloss = model.frameloss(ngt, mgt, nacc, macc, naccacc, maccacc)
 
             framediscoptim.zero_grad()
-            frameloss.mean().backward()
+            if(i == (args.total_length-args.input_length-1)):
+                frameloss.backward()
+            else:
+                frameloss.backward(retain_graph=True)
             framediscoptim.step()
 
             # floss.append(float(frameloss.mean()))
@@ -110,7 +115,10 @@ def train(args, model, traindata, validatiedata, device):
             seqloss = model.seqloss(nsgt, msgt, nsacc, msacc, nsaccacc, msaccacc)
 
             seqdiscoptim.zero_grad()
-            seqloss.mean().backward()
+            if(i == (args.total_length-args.input_length-1)):
+                seqloss.backward()
+            else:
+                seqloss.backward(retain_graph=True)
             seqdiscoptim.step()
 
             # sloss.append(float(seqloss.mean()))
@@ -140,14 +148,16 @@ def train(args, model, traindata, validatiedata, device):
             totloss = imageloss + 0.005 * LoGloss + 0.003 * frameloss + 0.003 * seqloss #lambda 1, 2 & 3
 
             genoptim.zero_grad()
-            totloss.mean().backward()
+            if(i == (args.total_length-args.input_length-1)):
+                totloss.backward()
+            else:
+                totloss.backward(retain_graph=True)
             genoptim.step()
 
             newbatch[:, args.input_length + i] = nacc
 
-        # gloss.append(float(totloss.mean()))
 
-        print("itr%d: gloss=%f\tfloss=%f\tsloss=%f" % (itr, float(totloss.mean()), float(frameloss.mean()), float(seqloss.mean())))
+            print("itr%d-frame%d: gloss=%f\tfloss=%f\tsloss=%f" % (itr, (i+1), float(totloss), float(frameloss), float(seqloss)))
 
         # ----------
         # Validatie
