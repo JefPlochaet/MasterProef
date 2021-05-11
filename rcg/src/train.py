@@ -82,7 +82,7 @@ def train(args, model, traindata, validatiedata, device):
         frameloss = model.frameloss(ngt, mgt, nacc, macc, naccacc, maccacc)
 
         framediscoptim.zero_grad()
-        frameloss.mean().backward()
+        frameloss.backward()
         framediscoptim.step()
 
         # floss.append(float(frameloss.mean()))
@@ -106,9 +106,10 @@ def train(args, model, traindata, validatiedata, device):
         msaccacc = add_back_frame(args, msgt, maccacc)
 
         seqloss = model.seqloss(nsgt, msgt, nsacc, msacc, nsaccacc, msaccacc)
+        
 
         seqdiscoptim.zero_grad()
-        seqloss.mean().backward()
+        seqloss.backward()
         seqdiscoptim.step()
 
         # sloss.append(float(seqloss.mean()))
@@ -133,17 +134,17 @@ def train(args, model, traindata, validatiedata, device):
 
         imageloss = model.imageloss(ngt, mgt, nacc, macc, naccacc, maccacc)
         LoGloss = model.LoGloss(ngt, mgt, nacc, macc, naccacc, maccacc)
-        frameloss = model.framelossGEN(nacc, macc, naccacc, maccacc)
-        seqloss = model.seqlossGEN(nsacc, msacc, nsaccacc, msaccacc)
-        totloss = imageloss + 0.005 * LoGloss + 0.003 * frameloss + 0.003 * seqloss #lambda 1, 2 & 3
+        framelossg = model.framelossGEN(nacc, macc, naccacc, maccacc)
+        seqlossg = model.seqlossGEN(nsacc, msacc, nsaccacc, msaccacc)
+        totloss = imageloss + 0.8 * LoGloss + 0.1 * framelossg + 0.003 * seqlossg #lambda 1, 2 & 3
 
         genoptim.zero_grad()
-        totloss.mean().backward()
+        totloss.backward()
         genoptim.step()
 
         # gloss.append(float(totloss.mean()))
 
-        print("itr%d: gloss=%f\tfloss=%f\tsloss=%f" % (itr, float(totloss.mean()), float(frameloss.mean()), float(seqloss.mean())))
+        print("itr%d: gloss=%f\tfloss=%f\tsloss=%f" % (itr, float(totloss), float(frameloss), float(seqloss)))
 
         # ----------
         # Validatie

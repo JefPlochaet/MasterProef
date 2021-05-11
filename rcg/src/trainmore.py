@@ -45,18 +45,12 @@ def train(args, model, traindata, validatiedata, device):
                 seqdiscoptim.param_groups[0]['lr'] = lr
 
         batch = traindata.get_batch()
-        # revbatch = traindata.get_revbatch()
 
-        torchbatch = convert_to_tensor(args, batch)
-        torchbatch.to(device)
+        torchbatch = convert_to_tensor(args, batch).to(device)
+        
+        torchrevbatch = torch.flip(torchbatch, [1]).to(device)
 
-        newbatch = torchbatch.clone()
-
-        # torchrevbatch = convert_to_tensor(args, revbatch)
-        # torchrevbatch.to(device)
-
-        # newrevbatch = torchrevbatch.clone()
-
+        newbatch = torchbatch.clone().to(device)
 
         for i in range(args.total_length-args.input_length):
 
@@ -64,14 +58,15 @@ def train(args, model, traindata, validatiedata, device):
             # Get GT information
             # -------------------
 
-            inseq = get_input_seq(args, newbatch).to(device)
+            inseq = get_input_seq(args, newbatch, i).to(device)
             revinseq = torch.flip(inseq, [1]).to(device)
 
-            ngt = get_gt_frame(args, torchbatch).to(device) #gt frame toekomst
-            nsgt = get_gt_seq(args, torchbatch).to(device)
+            ngt = get_gt_frame(args, torchbatch, i).to(device) #gt frame toekomst
+            nsgt = get_gt_seq(args, torchbatch, i).to(device)
 
-            mgt = get_gt_frame(args, torchrevbatch).to(device) #gt frame verleden
-            msgt = get_gt_seq(args, torchrevbatch).to(device)
+            index = args.total_length - args.input_length - 1 - i
+            mgt = get_gt_frame(args, torchrevbatch, index).to(device) #gt frame verleden
+            msgt = get_gt_seq(args, torchrevbatch, index).to(device)
 
             # --------------------------
             # Train frame discriminator
@@ -83,8 +78,8 @@ def train(args, model, traindata, validatiedata, device):
             torchbatchmacc = add_front_frame(args, nsgt, macc) #voeg de genereerde frame toe aan de sequentie
             torchbatchnacc = add_front_frame(args, msgt, nacc) #voeg de genereerde frame toe aan de sequentie
 
-            naccacc = model.generator(get_input_seq(args, torchbatchmacc)) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
-            maccacc = model.generator(get_input_seq(args, torchbatchnacc)) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
+            naccacc = model.generator(get_input_seq(args, torchbatchmacc, 0)) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
+            maccacc = model.generator(get_input_seq(args, torchbatchnacc, 0)) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
 
             frameloss = model.frameloss(ngt, mgt, nacc, macc, naccacc, maccacc)
 
@@ -104,8 +99,8 @@ def train(args, model, traindata, validatiedata, device):
             torchbatchmacc = add_front_frame(args, nsgt, macc) #voeg de genereerde frame toe aan de sequentie
             torchbatchnacc = add_front_frame(args, msgt, nacc) #voeg de genereerde frame toe aan de sequentie
 
-            naccacc = model.generator(get_input_seq(args, torchbatchmacc)) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
-            maccacc = model.generator(get_input_seq(args, torchbatchnacc)) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
+            naccacc = model.generator(get_input_seq(args, torchbatchmacc, 0)) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
+            maccacc = model.generator(get_input_seq(args, torchbatchnacc, 0)) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
 
             nsacc = add_back_frame(args, nsgt, nacc)
             msacc = add_back_frame(args, msgt, macc)
@@ -130,8 +125,8 @@ def train(args, model, traindata, validatiedata, device):
             torchbatchmacc = add_front_frame(args, nsgt, macc) #voeg de genereerde frame toe aan de sequentie
             torchbatchnacc = add_front_frame(args, msgt, nacc) #voeg de genereerde frame toe aan de sequentie
 
-            naccacc = model.generator(get_input_seq(args, torchbatchmacc)) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
-            maccacc = model.generator(get_input_seq(args, torchbatchnacc)) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
+            naccacc = model.generator(get_input_seq(args, torchbatchmacc, 0)) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
+            maccacc = model.generator(get_input_seq(args, torchbatchnacc, 0)) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
 
             nsacc = add_back_frame(args, nsgt, nacc)
             msacc = add_back_frame(args, msgt, macc)
@@ -147,6 +142,8 @@ def train(args, model, traindata, validatiedata, device):
             genoptim.zero_grad()
             totloss.mean().backward()
             genoptim.step()
+
+            newbatch[:, args.input_length + i] = nacc
 
         # gloss.append(float(totloss.mean()))
 

@@ -43,10 +43,10 @@ class Model():
 
     def frameloss(self, ngt, mgt, nacc, macc, naccacc, maccacc):
 
-        la1 = self.GANLossDisc(self.discframe(ngt), self.discframe(nacc))
-        la2 = self.GANLossDisc(self.discframe(ngt), self.discframe(naccacc))
-        la3 = self.GANLossDisc(self.discframe(mgt), self.discframe(macc))
-        la4 = self.GANLossDisc(self.discframe(mgt), self.discframe(maccacc))
+        la1 = self.GANLossDisc(self.discframe(ngt).mean(), self.discframe(nacc).mean())
+        la2 = self.GANLossDisc(self.discframe(ngt).mean(), self.discframe(naccacc).mean())
+        la3 = self.GANLossDisc(self.discframe(mgt).mean(), self.discframe(macc).mean())
+        la4 = self.GANLossDisc(self.discframe(mgt).mean(), self.discframe(maccacc).mean())
 
         return la1 + la2 + la3 + la4
 
