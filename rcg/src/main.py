@@ -6,7 +6,6 @@ import os
 
 from model import Model
 from datahandler_auto import DataHandler
-from trainmore import train
 from test import test
 #----------------------------------------------------------------------
 
@@ -43,6 +42,11 @@ args = parser.parse_args()
 print(args)
 print("")
 
+if (args.total_length - args.input_length) > 1:
+    from trainmore import train
+else:
+    from train import train
+
 #----------------------------------------------------------------------
 # summary(model.generator, input_data=test)
 
@@ -54,8 +58,8 @@ if __name__ == '__main__':
 
     model = Model(args, device)
 
-    if not os.path.isdir("results/"):
-        os.mkdir("results/")
+    if not os.path.isdir(args.results_dir):
+        os.mkdir(args.results_dir)
 
     if args.train == 1:
 
