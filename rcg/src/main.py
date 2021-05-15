@@ -7,6 +7,7 @@ import os
 from model import Model
 from datahandler_auto import DataHandler
 from test import test
+from trainmore import train
 #----------------------------------------------------------------------
 
 parser = argparse.ArgumentParser(description='RCGAN video prediction')
@@ -42,10 +43,6 @@ args = parser.parse_args()
 print(args)
 print("")
 
-if (args.total_length - args.input_length) > 1:
-    from trainmore import train
-else:
-    from train import train
 
 #----------------------------------------------------------------------
 # summary(model.generator, input_data=test)

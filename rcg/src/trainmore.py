@@ -80,11 +80,11 @@ def train(args, model, traindata, validatiedata, device):
             nacc = model.generator(inseq) #genereer toekomstige frame
             macc = model.generator(revinseq) #genereer verleden frame (omgekeerde sequentie)
 
-            torchbatchmacc = add_front_frame(args, nsgt, macc) #voeg de genereerde frame toe aan de sequentie
-            torchbatchnacc = add_front_frame(args, msgt, nacc) #voeg de genereerde frame toe aan de sequentie
+            torchbatchmacc = add_front_frame(args, inseq, macc) #voeg de genereerde frame toe aan de sequentie
+            torchbatchnacc = add_front_frame(args, revinseq, nacc) #voeg de genereerde frame toe aan de sequentie
 
-            naccacc = model.generator(get_input_seq(args, torchbatchmacc, 0)) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
-            maccacc = model.generator(get_input_seq(args, torchbatchnacc, 0)) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
+            naccacc = model.generator(torchbatchmacc) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
+            maccacc = model.generator(torchbatchnacc) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
 
             frameloss = model.frameloss(ngt, mgt, nacc, macc, naccacc, maccacc)
 
@@ -104,16 +104,16 @@ def train(args, model, traindata, validatiedata, device):
             nacc = model.generator(inseq) #genereer toekomstige frame
             macc = model.generator(revinseq) #genereer verleden frame (omgekeerde sequentie)
 
-            torchbatchmacc = add_front_frame(args, nsgt, macc) #voeg de genereerde frame toe aan de sequentie
-            torchbatchnacc = add_front_frame(args, msgt, nacc) #voeg de genereerde frame toe aan de sequentie
+            torchbatchmacc = add_front_frame(args, inseq, macc) #voeg de genereerde frame toe aan de sequentie
+            torchbatchnacc = add_front_frame(args, revinseq, nacc) #voeg de genereerde frame toe aan de sequentie
 
-            naccacc = model.generator(get_input_seq(args, torchbatchmacc, 0)) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
-            maccacc = model.generator(get_input_seq(args, torchbatchnacc, 0)) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
+            naccacc = model.generator(torchbatchmacc) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
+            maccacc = model.generator(torchbatchnacc) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
 
-            nsacc = add_back_frame(args, nsgt, nacc)
-            msacc = add_back_frame(args, msgt, macc)
-            nsaccacc = add_back_frame(args, nsgt, naccacc)
-            msaccacc = add_back_frame(args, msgt, maccacc)
+            nsacc = add_back_frame(args, inseq, nacc)
+            msacc = add_back_frame(args, revinseq, macc)
+            nsaccacc = add_back_frame(args, torchbatchmacc, naccacc)
+            msaccacc = add_back_frame(args, torchbatchnacc, maccacc)
 
             seqloss = model.seqloss(nsgt, msgt, nsacc, msacc, nsaccacc, msaccacc)
 
@@ -133,16 +133,16 @@ def train(args, model, traindata, validatiedata, device):
             nacc = model.generator(inseq) #genereer toekomstige frame
             macc = model.generator(revinseq) #genereer verleden frame (omgekeerde sequentie)
 
-            torchbatchmacc = add_front_frame(args, nsgt, macc) #voeg de genereerde frame toe aan de sequentie
-            torchbatchnacc = add_front_frame(args, msgt, nacc) #voeg de genereerde frame toe aan de sequentie
+            torchbatchmacc = add_front_frame(args, inseq, macc) #voeg de genereerde frame toe aan de sequentie
+            torchbatchnacc = add_front_frame(args, revinseq, nacc) #voeg de genereerde frame toe aan de sequentie
 
-            naccacc = model.generator(get_input_seq(args, torchbatchmacc, 0)) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
-            maccacc = model.generator(get_input_seq(args, torchbatchnacc, 0)) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
+            naccacc = model.generator(torchbatchmacc) #genereer toekomstige frame gebaseerd op gegenereerde verleden frame
+            maccacc = model.generator(torchbatchnacc) #genereer verleden frame gebaseerd op de gegenereerde toekomstige frame
 
-            nsacc = add_back_frame(args, nsgt, nacc)
-            msacc = add_back_frame(args, msgt, macc)
-            nsaccacc = add_back_frame(args, nsgt, naccacc)
-            msaccacc = add_back_frame(args, msgt, maccacc)
+            nsacc = add_back_frame(args, inseq, nacc)
+            msacc = add_back_frame(args, revinseq, macc)
+            nsaccacc = add_back_frame(args, torchbatchmacc, naccacc)
+            msaccacc = add_back_frame(args, torchbatchnacc, maccacc)
 
             imageloss = model.imageloss(ngt, mgt, nacc, macc, naccacc, maccacc)
             LoGloss = model.LoGloss(ngt, mgt, nacc, macc, naccacc, maccacc)

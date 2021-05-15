@@ -41,11 +41,10 @@ def add_front_frame(args, torchbatch, frame):
 
     return new_batch
 
-def add_back_frame(args, torchbatch, frame):
+def add_back_frame(args, inseq, frame):
     """Neemt gt sequence binnen en vervangt LAATSTE frame
     metmet een voorspelde frame"""
     
-    new_batch = torchbatch.clone()
-    new_batch[:, args.input_length:args.input_length+1] = frame
+    new_batch = torch.cat([inseq, frame], dim=1)
 
     return new_batch
