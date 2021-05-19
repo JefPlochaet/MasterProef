@@ -7,7 +7,7 @@ import os
 from model import Model
 from datahandler_auto import DataHandler
 from test import test
-from trainmore import train
+from train import train
 #----------------------------------------------------------------------
 
 parser = argparse.ArgumentParser(description='RCGAN video prediction')

@@ -15,16 +15,21 @@ def test(args, model, testdata, device):
 
     with torch.no_grad():
     
-        msetot = 0
-        ssimtot = 0
-        psnrtot = 0
+        msetot = []
+        ssimtot = []
+        psnrtot = []
+
+        for ind in range(args.total_length-args.input_length):
+            msetot.append(0)
+            ssimtot.append(0)
+            psnrtot.append(0)
 
         testdata.begin(shuffle=False)
 
         batchid = 0
 
-        if not os.path.isdir(args.results_dir + "/test"):
-            os.mkdir(args.results_dir + "/test")
+        if not os.path.isdir(args.results_dir + "/" + "test"):
+            os.mkdir(args.results_dir + "/" + "test")
 
         while(testdata.batch_left() == True):
 
@@ -32,18 +37,26 @@ def test(args, model, testdata, device):
 
             vbt = convert_to_tensor(args, vbatch).to(device)
 
-            gtimg = get_gt_frame(args, vbt)
-            pdimg = generator(get_input_seq(args, vbt))
+            pdimgs = []
 
-            for i in range(args.batch_size):
-                gtnp = np.uint8(gtimg[i, 0].detach().cpu() * 255)
-                pdnp = np.uint8(pdimg[i, 0].detach().cpu() * 255)
-                msetot += mean_squared_error(gtnp, pdnp)
-                ssimtot += structural_similarity(gtnp, pdnp)
-                psnrtot += peak_signal_noise_ratio(gtnp, pdnp)
+            inp = get_input_seq(args, vbt, 0)
+
+            for ind in range(args.total_length-args.input_length):
+                gtimg = get_gt_frame(args, vbt, ind)
+                pdimg = generator(get_input_seq(args, inp, ind))
+                inp = torch.cat([inp, pdimg], dim=1)
+
+                pdimgs.append(pdimg)
+
+                for i in range(args.batch_size):
+                    gtnp = np.uint8(gtimg[i, 0].detach().cpu() * 255)
+                    pdnp = np.uint8(pdimg[i, 0].detach().cpu() * 255)
+                    msetot[ind] += mean_squared_error(gtnp, pdnp)
+                    ssimtot[ind] += structural_similarity(gtnp, pdnp)
+                    psnrtot[ind] += peak_signal_noise_ratio(gtnp, pdnp)
 
             # save predication samples
-            path = args.results_dir + "/test/" + str(batchid+1)
+            path = args.results_dir + "/" + "test" +  "/" + str(batchid+1)
             if not os.path.isdir(path):
                 os.mkdir(path)
 
@@ -52,20 +65,17 @@ def test(args, model, testdata, device):
                 img = np.uint8(vbt[0, i].detach().cpu() * 255)
                 cv2.imwrite(file, img)
 
-            img = pdimg[0].detach().cpu().numpy()
-
-            img = np.uint8(img[0] * 255)
-
-            file = path + "/pd"+ str(args.input_length+1) +".png"
-            cv2.imwrite(file, img)
+            for i in range(args.total_length-args.input_length):
+                file = path + "/pd"+ str(args.input_length+1+i) +".png"
+                img = np.uint8(pdimgs[i][0, 0].detach().cpu() * 255)    
+                cv2.imwrite(file, img)
 
             batchid += 1
             testdata.next()
 
-        mse = msetot/((batchid+1)*args.batch_size)
-        ssim = ssimtot/((batchid+1)*args.batch_size)
-        psnr = psnrtot/((batchid+1)*args.batch_size)
+        for ind in range(args.total_length-args.input_length):
+            mse = msetot[ind]/((batchid+1)*args.batch_size)
+            ssim = ssimtot[ind]/((batchid+1)*args.batch_size)
+            psnr = psnrtot[ind]/((batchid+1)*args.batch_size)
 
-        print("ssim=%f\tmse=%f\tpsnr=%f\t" % (ssim, mse, psnr))
-    
-    generator.train()
+            print("frame%d: ssim=%f\tmse=%f\tpsnr=%f\t" % ((ind+1), ssim, mse, psnr))
