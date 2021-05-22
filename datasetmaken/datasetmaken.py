@@ -2,8 +2,25 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import os
+import argparse
 
-SET = "frontside" #possible values: front - back - side - frontside - backside
+#-------------------------------------------------------------------------
+
+parser = argparse.ArgumentParser(description='Datasets maken voor predrnn en rcgan')
+
+parser.add_argument('--network', type=str)
+parser.add_argument('--seq_length', type=int, default=4)
+parser.add_argument('--input_length', type=int, default=3)
+parser.add_argument('--view', type=str, default='front')
+parser.add_argument('--extension', type=str)
+parser.add_argument('--add_dummy_data', type=int, default=0)
+
+args = parser.parse_args()
+print(args)
+
+#-------------------------------------------------------------------------
+
+SET = args.view #possible values: front - back - side - frontside - backside
 
 BASEPATH = "/home/jef/Documents/data/"+SET+"view"
 
@@ -11,7 +28,11 @@ TRAINSET = 0.4 #percentage of dataset for training set 0.6
 VALSET = 0.25 #persentage of dataset for validation set 0.15
 TESTSET = 0.35 #percentage of dataset fot test set 0.25
 
-LAATSTEVIER = True
+LAATSTEVIER = False
+EERSTEVIER = False
+
+SEQGROOTTE = args.seq_length
+PREDGROOTTE = SEQGROOTTE-args.input_length
 
 
 def sorteren():
@@ -49,8 +70,8 @@ def verdeelsets(lijstsequenties):
     test = []
 
     for seq in lijstsequenties:
-        if len(seq) >= 4:
-            new.append(seq) #enkel de sequneties die 4 of langer zijn bijhouden
+        if len(seq) >= SEQGROOTTE:
+            new.append(seq) #enkel de sequneties die SEQGROOTTE of langer zijn bijhouden
     
     seqlen = len(new)
 
@@ -76,23 +97,26 @@ def verdeelsets(lijstsequenties):
 
 def lengteseqaanpassen(lijstsequenties):
     """Functie zet grotere sequenties om naar kleinere sequenties 
-    van een totale langte van 4 (3 input en 1 output)"""
+    van een totale langte van SEQGROOTTE"""
 
     print("Voor:" + str(len(lijstsequenties)))
 
     newlist = []
 
     for seq in lijstsequenties:
-        if len(seq) <= 4:
+        if len(seq) <= SEQGROOTTE:
             newlist.append(seq)
         else:
-            if LAATSTEVIER == False:
-                for i in range((len(seq)-4+1)):
-                    t = [seq[i], seq[i+1], seq[i+2], seq[i+3]]
-                    newlist.append(t)
-            else:
+            if LAATSTEVIER == True:
                 t = [seq[-4], seq[-3], seq[-2], seq[-1]]
                 newlist.append(t)
+            elif EERSTEVIER == True:
+                t = [seq[0], seq[1], seq[2], seq[3]]
+                newlist.append(t)
+            else:
+                for i in range((len(seq)-SEQGROOTTE+1)):
+                    t = seq[i:i+SEQGROOTTE]
+                    newlist.append(t)
 
     print("Na:" + str(len(newlist)))
 
@@ -122,7 +146,7 @@ def datasetvormgeven(lijstsequenties):
             h, w = img.shape
 
             if 525 != h or 788 != w:
-                print("Probleem H of W bij " + model)
+                # print("Probleem H of W bij " + model)
                 errorinseq = True
                 continue
 
@@ -137,15 +161,20 @@ def datasetvormgeven(lijstsequenties):
             tijdelijk.append([img])
 
         if errorinseq == True:
-            print("Sequentie geskipt!")
+            # print("Sequentie geskipt!")
             continue
-        
+
+        if args.add_dummy_data != 0:
+            for i in range(args.add_dummy_data):
+                dummydata = np.zeros((164, 240), dtype=np.float16)
+                tijdelijk.append([dummydata])
+                
         for t in tijdelijk:
             imdata.append(t)
 
-        totl = len(element)
-        inpl = 3
-        gtl = totl - inpl
+        totl = len(tijdelijk)
+        inpl = SEQGROOTTE - PREDGROOTTE
+        gtl = PREDGROOTTE + args.add_dummy_data
 
         tijdelijk = []
         tijdelijk.append(index)
@@ -169,6 +198,47 @@ def datasetvormgeven(lijstsequenties):
 
     return inp, gt, imdata
 
+def datasetvormgevenGAN(lijstsequenties):
+    """Functie maakt de sequentielijst voor 
+    gebruik te maken van het GAN netwerk"""
+
+    data = []
+
+    for element in lijstsequenties:
+    
+        tijdelijk = []
+        errorinseq = False
+
+        for model in element:
+            img = cv2.imread(BASEPATH + '/' + model, cv2.IMREAD_GRAYSCALE)
+
+            h, w = img.shape
+
+            if 525 != h or 788 != w:
+                # print("Probleem H of W bij " + model)
+                errorinseq = True
+                continue
+
+            img = cv2.resize(img, (240, 160), interpolation = cv2.INTER_AREA)
+
+            img = np.float32(img)
+
+            img = cv2.normalize(img, img, 0, 1, norm_type=cv2.NORM_MINMAX)
+
+            img = np.float16(img)
+
+            tijdelijk.append([img])
+
+        if errorinseq == True:
+            # print("Sequentie geskipt!")
+            continue
+            
+        data.append(tijdelijk)
+
+    print("Aantal sequenties = %d" % (len(data)))
+    
+    return data
+
 def opslaannpz(inp, gt, data, naam):
     """Functie slaagt de data op als een npz file, 
         in formaat:
@@ -178,27 +248,52 @@ def opslaannpz(inp, gt, data, naam):
 
     index = [inp, gt]
     dims = [[1, 164, 240]]
-    np.savez("npz/auto-" + naam + "-" + SET + "-l4.npz", index=index, data=data, dims=dims)
+    np.savez("npz/auto-" + naam + "-" + SET + "-"+ args.extension +".npz", index=index, data=data, dims=dims)
+
+def opslaanGAN(data, naam):
+    """Functie zal de lijst van sequenties opslaan
+    (dit zijn de sequenties die bedoelt zijn om te gebruiken voor de rcgan)"""
+
+    np.save("gan/auto-" + naam + "-" + SET + "-"+ args.extension +".npy", data)
 
 
 def main():
+
+    print('Dataset maken van %s' % (BASEPATH))
     
     lijstsequenties = sorteren()
 
     train, val, test = verdeelsets(lijstsequenties)
 
-    # train = lengteseqaanpassen(train)
-    # val = lengteseqaanpassen(val)
+    train = lengteseqaanpassen(train)
+    val = lengteseqaanpassen(val)
     test = lengteseqaanpassen(test)
 
-    # inp, gt, data = datasetvormgeven(train)
-    # opslaannpz(inp, gt, data, "train")
 
-    # inp, gt, data = datasetvormgeven(val)
-    # opslaannpz(inp, gt, data, "validatie")
+    if args.network == 'predrnn':
+        print('predrnn')
+        inp, gt, data = datasetvormgeven(train)
+        opslaannpz(inp, gt, data, "train")
 
-    inp, gt, data = datasetvormgeven(test)
-    opslaannpz(inp, gt, data, "test")
+        inp, gt, data = datasetvormgeven(val)
+        opslaannpz(inp, gt, data, "validatie")
+
+        inp, gt, data = datasetvormgeven(test)
+        opslaannpz(inp, gt, data, "test")
+
+    elif args.network == 'rcgan':
+        print('rcgan')
+        data = datasetvormgevenGAN(train)
+        opslaanGAN(data, 'train')
+
+        data = datasetvormgevenGAN(val)
+        opslaanGAN(data, 'validatie')
+
+        data = datasetvormgevenGAN(test)
+        opslaanGAN(data, 'test')
+
+    else:
+        print('Geen geldig netwerk geselecteerd')
 
 if __name__ == '__main__':
     main()

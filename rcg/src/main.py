@@ -70,6 +70,8 @@ if __name__ == '__main__':
 
         testdata = DataHandler(args, args.test_path)
 
+        print("Loading generator %s" % (args.pretrained_model))
+
         model.generator = torch.load(args.pretrained_model)
 
         test(args, model, testdata, device)

@@ -33,8 +33,7 @@ def get_gt_seq(args, torchbatch, index):
     return torchbatch[:, index:args.input_length+index+1]
 
 def add_front_frame(args, torchbatch, frame):
-    """Neemt gt sequence binnen en vervangt EERSTE frame
-    met een voorspelde frame"""
+    """Vervangt eerste frame van inputseq (na clone)"""
     
     new_batch = torchbatch.clone()
     new_batch[:, 0:1] = frame
@@ -42,8 +41,7 @@ def add_front_frame(args, torchbatch, frame):
     return new_batch
 
 def add_back_frame(args, inseq, frame):
-    """Neemt gt sequence binnen en vervangt LAATSTE frame
-    metmet een voorspelde frame"""
+    """Voegt voorspelde frame aan inputsequentie toe"""
     
     new_batch = torch.cat([inseq, frame], dim=1)
 
